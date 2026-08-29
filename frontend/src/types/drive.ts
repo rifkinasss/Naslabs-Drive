@@ -5,11 +5,13 @@ export interface DriveFile {
   mime_type: string
   extension: string
   size: number
-  size_human: string
+  size_human?: string
   folder_id: number | null
   created_at: string
   updated_at: string
   deleted_at: string | null
+  is_favorite?: boolean
+  tags?: string[]
 }
 
 export interface DriveFolder {
@@ -20,6 +22,10 @@ export interface DriveFolder {
   color: string | null
   created_at: string
   deleted_at: string | null
+  updated_at?: string
+  is_favorite?: boolean
+  files_count?: number
+  files_sum_size?: number
 }
 
 export interface BreadcrumbItem {

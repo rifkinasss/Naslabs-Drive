@@ -2,7 +2,8 @@ export interface User {
   id: number
   name: string
   email: string
-  role: 'admin' | 'user'
+  avatar_url?: string | null
+  role: 'admin' | 'manager' | 'user'
   created_at: string
 }
 
@@ -28,8 +29,10 @@ export interface ActivityLog {
 }
 
 export interface UserWithStorage extends User {
+  email_verified_at?: string | null
   used_storage: number
   storage_quota: number
   quota_percentage: number
   file_count: number
+  is_drive_enabled: boolean
 }

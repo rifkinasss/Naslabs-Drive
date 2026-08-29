@@ -2,6 +2,8 @@
 
 import { HardDrive, Trash2, SearchX, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { useLanguage } from '@/providers/LanguageProvider'
 
 type EmptyVariant = 'drive' | 'folder' | 'trash' | 'search'
 
@@ -11,45 +13,48 @@ interface EmptyStateProps {
   className?: string
 }
 
-const config: Record<EmptyVariant, { icon: React.ElementType; title: string; desc: string; iconClass: string }> = {
+const config: Record<EmptyVariant, { icon: React.ElementType; titleKey: string; descKey: string; iconClass: string }> = {
   drive: {
     icon: HardDrive,
-    title: 'Your drive is empty',
-    desc: 'Upload files or create folders to get started. Drag & drop files anywhere on this page.',
+    titleKey: 'driveEmpty',
+    descKey: 'driveEmptyDescription',
     iconClass: 'text-primary',
   },
   folder: {
     icon: FolderOpen,
-    title: 'This folder is empty',
-    desc: 'Upload files or create a subfolder inside this folder.',
+    titleKey: 'folderEmpty',
+    descKey: 'folderEmptyDescription',
     iconClass: 'text-amber-400',
   },
   trash: {
     icon: Trash2,
-    title: 'Trash is empty',
-    desc: 'Files and folders you delete will appear here.',
+    titleKey: 'trashEmpty',
+    descKey: 'trashEmptyDescription',
     iconClass: 'text-muted-foreground',
   },
   search: {
     icon: SearchX,
-    title: 'No results found',
-    desc: 'Try searching with a different keyword.',
+    titleKey: 'noResults',
+    descKey: 'searchDifferent',
     iconClass: 'text-muted-foreground',
   },
 }
 
 export function EmptyState({ variant = 'drive', query, className }: EmptyStateProps) {
-  const { icon: Icon, title, desc, iconClass } = config[variant]
+  const { icon: Icon, titleKey, descKey, iconClass } = config[variant]
+  const { t } = useLanguage()
 
   return (
-    <div className={cn('flex flex-col items-center justify-center py-24 px-8 text-center', className)}>
-      <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-5">
+    <Empty className={cn('py-24 px-8', className)}>
+      <EmptyHeader>
+      <EmptyMedia variant="icon" className="size-20 rounded-2xl bg-secondary text-primary [&_svg:not([class*='size-'])]:size-10">
         <Icon className={cn('w-10 h-10', iconClass)} />
-      </div>
-      <h3 className="text-base font-semibold mb-1.5">
-        {variant === 'search' && query ? `No results for "${query}"` : title}
-      </h3>
-      <p className="text-sm text-muted-foreground max-w-xs">{desc}</p>
-    </div>
+      </EmptyMedia>
+      <EmptyTitle className="text-base">
+        {variant === 'search' && query ? `${t('noResultsFor')} "${query}"` : t(titleKey)}
+      </EmptyTitle>
+      <EmptyDescription className="max-w-xs">{t(descKey)}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   )
 }

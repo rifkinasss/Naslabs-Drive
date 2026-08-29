@@ -1,0 +1,24 @@
+# Local and generated files
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+
+# Backend dependencies and runtime output
+backend/vendor/
+backend/node_modules/
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/logs/*.log
+backend/public/build/

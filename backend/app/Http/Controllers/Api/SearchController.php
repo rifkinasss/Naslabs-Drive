@@ -15,11 +15,18 @@ class SearchController extends Controller
         $request->validate([
             'q' => ['nullable', 'string', 'max:255'],
             'type' => ['nullable', 'string', 'in:All,Images,Documents,Videos,Folders'],
+            'favorite' => ['nullable', 'boolean'],
+            'sort' => ['nullable', 'string', 'in:name,updated_at,size'],
+            'min_size' => ['nullable', 'integer', 'min:0'],
+            'max_size' => ['nullable', 'integer', 'min:0'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
         ]);
 
         $user = $request->user();
         $query = strtolower($request->query('q', ''));
         $type = $request->query('type', 'All');
+        $sort = $request->query('sort', 'name');
 
         $folders = collect();
         if ($type === 'All' || $type === 'Folders') {
@@ -27,7 +34,10 @@ class SearchController extends Controller
             if ($query) {
                 $foldersQuery->whereRaw('LOWER(name) LIKE ?', ["%{$query}%"]);
             }
-            $folders = $foldersQuery->orderBy('name')->get();
+            if ($request->boolean('favorite')) $foldersQuery->where('is_favorite', true);
+            if ($request->filled('from')) $foldersQuery->whereDate('created_at', '>=', $request->query('from'));
+            if ($request->filled('to')) $foldersQuery->whereDate('created_at', '<=', $request->query('to'));
+            $folders = $foldersQuery->orderBy($sort === 'updated_at' ? 'updated_at' : 'name', $sort === 'updated_at' ? 'desc' : 'asc')->get();
         }
 
         $files = collect();
@@ -36,6 +46,11 @@ class SearchController extends Controller
             if ($query) {
                 $filesQuery->whereRaw('LOWER(name) LIKE ?', ["%{$query}%"]);
             }
+            if ($request->boolean('favorite')) $filesQuery->where('is_favorite', true);
+            if ($request->filled('min_size')) $filesQuery->where('size', '>=', $request->query('min_size'));
+            if ($request->filled('max_size')) $filesQuery->where('size', '<=', $request->query('max_size'));
+            if ($request->filled('from')) $filesQuery->whereDate('created_at', '>=', $request->query('from'));
+            if ($request->filled('to')) $filesQuery->whereDate('created_at', '<=', $request->query('to'));
 
             if ($type === 'Images') {
                 $filesQuery->where('mime_type', 'LIKE', 'image/%');
@@ -52,12 +67,13 @@ class SearchController extends Controller
                 });
             }
 
-            $files = $filesQuery->orderBy('name')->get();
+            $files = $filesQuery->orderBy($sort === 'size' ? 'size' : ($sort === 'updated_at' ? 'updated_at' : 'name'), $sort === 'name' ? 'asc' : 'desc')->get();
         }
 
         return response()->json([
             'query' => $query,
             'type' => $type,
+            'filters' => ['favorite' => $request->boolean('favorite'), 'sort' => $sort],
             'folders' => $folders,
             'files' => $files,
         ]);

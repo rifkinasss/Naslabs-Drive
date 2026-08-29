@@ -18,6 +18,7 @@ class Folder extends Model
         'parent_id',
         'name',
         'color',
+        'is_favorite',
     ];
 
     protected static function boot()
@@ -49,5 +50,21 @@ class Folder extends Model
     public function files(): HasMany
     {
         return $this->hasMany(File::class);
+    }
+
+    public function shares(): HasMany
+    {
+        return $this->hasMany(FolderShare::class);
+    }
+
+    public function isDescendantOf(Folder $ancestor): bool
+    {
+        $current = $this->parent;
+        while ($current !== null) {
+            if ($current->is($ancestor)) return true;
+            $current = $current->parent;
+        }
+
+        return false;
     }
 }

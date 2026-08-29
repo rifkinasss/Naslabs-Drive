@@ -7,7 +7,9 @@ Keamanan sistem menggunakan lapisan berlapis: autentikasi existing Laravel, otor
 
 ## 1. Authentication
 
-### Mekanisme
+> Catatan implementasi saat ini: frontend menggunakan token Sanctum Bearer yang disimpan di `localStorage`. Dokumentasi cookie SPA di bawah ini adalah target hardening berikutnya dan belum boleh dianggap sebagai konfigurasi aktif.
+
+### Mekanisme (target cookie SPA)
 - **Laravel Sanctum SPA mode** — menggunakan cookie session (bukan token/Bearer)
 - Cookie bersifat `httpOnly` dan `Secure` — tidak bisa diakses JavaScript
 - CSRF protection via `XSRF-TOKEN` cookie yang dibaca frontend dan dikirim sebagai header `X-XSRF-TOKEN`
@@ -150,6 +152,8 @@ Laravel memvalidasi **baik MIME type maupun ekstensi** — karena attacker bisa 
 ---
 
 ## 4. Rate Limiting
+
+Implementasi aktif saat ini memasang throttle umum `60 request/menit` pada route authenticated, `20 request/menit` untuk upload biasa/start/complete, dan `120 request/menit` untuk chunk upload. Route login, OTP, dan public share memiliki throttle khusus.
 
 ```php
 // routes/api.php atau RouteServiceProvider

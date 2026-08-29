@@ -65,21 +65,31 @@ export function getActionLabel(action: string): string {
     move:           'Moved',
     create_folder:  'Created Folder',
     empty_trash:    'Emptied Trash',
+    update_system_setting: 'Updated Setting',
+    update_system_settings: 'Updated Settings',
+    reset_branding_asset: 'Reset Branding',
+    run_backup: 'Ran Backup',
+    restore_backup: 'Restored Backup',
   }
   return labels[action] ?? action
 }
 
 export function getActionColor(action: string): string {
   const colors: Record<string, string> = {
-    upload:         'text-emerald-400',
-    download:       'text-blue-400',
-    delete:         'text-amber-400',
-    restore:        'text-teal-400',
-    permanent_delete: 'text-red-400',
-    rename:         'text-violet-400',
-    move:           'text-cyan-400',
-    create_folder:  'text-yellow-400',
-    empty_trash:    'text-red-400',
+    upload:         'bg-emerald-100 text-emerald-700',
+    download:       'bg-blue-100 text-blue-700',
+    delete:         'bg-amber-100 text-amber-700',
+    restore:        'bg-teal-100 text-teal-700',
+    permanent_delete: 'bg-red-100 text-red-700',
+    rename:         'bg-violet-100 text-violet-700',
+    move:           'bg-cyan-100 text-cyan-700',
+    create_folder:  'bg-yellow-100 text-yellow-700',
+    empty_trash:    'bg-red-100 text-red-700',
+    update_system_setting: 'bg-slate-100 text-slate-700',
+    update_system_settings: 'bg-slate-100 text-slate-700',
+    reset_branding_asset: 'bg-indigo-100 text-indigo-700',
+    run_backup: 'bg-sky-100 text-sky-700',
+    restore_backup: 'bg-orange-100 text-orange-700',
   }
-  return colors[action] ?? 'text-slate-400'
+  return colors[action] ?? 'bg-slate-100 text-slate-700'
 }

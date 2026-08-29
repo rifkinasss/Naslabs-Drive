@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="cloud-nl-gradient" x1="8" y1="6" x2="40" y2="43" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#0369A1"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="14" fill="#F8FAFC"/>
+  <path d="M14.6 37.5h20.1a8.8 8.8 0 0 0 1.7-17.43A12.1 12.1 0 0 0 13 16.8a9.9 9.9 0 0 0 1.6 20.7Z" fill="url(#cloud-nl-gradient)"/>
+  <path d="M17 29.2h5.2l-3.8 4.1h4.2M28.2 33.3v-8.1m0 0h4.5m-4.5 4.1h3.8" stroke="white" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

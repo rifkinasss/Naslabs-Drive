@@ -1,79 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, User, Lock, Moon, Sun, Monitor, HardDrive, Key, Save, Check } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Settings, Moon, Sun, Monitor, HardDrive, Key, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useAuth } from '@/providers/AuthProvider'
-import { updateUserProfile, updateUserPassword } from '@/services/drive-api'
+import { Language, useLanguage } from '@/providers/LanguageProvider'
+import { Theme, useTheme } from '@/providers/ThemeProvider'
+import { fetchSessions, revokeSession, logoutAllSessions, regenerateApiToken } from '@/services/drive-api'
 import { formatBytes } from '@/lib/helpers'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/api-client'
 
 export default function SettingsPage() {
-  const { user, setUser } = useAuth()
+  const { user } = useAuth()
+  const { language, setLanguage, t } = useLanguage()
+  const queryClient = useQueryClient()
+  const { data: sessions = [] } = useQuery({ queryKey: ['sessions'], queryFn: fetchSessions, enabled: !!user })
+  const [sessionPage, setSessionPage] = useState(1)
+  const sessionPageSize = 10
+  const sessionPageCount = Math.max(1, Math.ceil(sessions.length / sessionPageSize))
+  const visibleSessions = sessions.slice((sessionPage - 1) * sessionPageSize, sessionPage * sessionPageSize)
+  const revokeSessionMutation = useMutation({ mutationFn: revokeSession, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['sessions'] }); setSessionPage(page => Math.min(page, Math.max(1, Math.ceil((sessions.length - 1) / sessionPageSize)))); toast.success('Session revoked') } })
+  const logoutAllMutation = useMutation({ mutationFn: logoutAllSessions, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['sessions'] }); setSessionPage(1); toast.success('All sessions revoked') } })
 
-  // Form states
-  const [name, setName] = useState(user?.name ?? '')
-  const [currentPass, setCurrentPass] = useState('')
-  const [newPass, setNewPass] = useState('')
-  const [confirmPass, setConfirmPass] = useState('')
-  const [theme, setTheme] = useState<'dark' | 'light' | 'system'>('dark')
-  const [defaultView, setDefaultView] = useState<'grid' | 'list'>('grid')
+  const { theme, setTheme } = useTheme()
+  const [defaultView, setDefaultView] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'grid'
+    return (localStorage.getItem('drive_default_view') as 'grid' | 'list') || 'grid'
+  })
+  const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'size' | 'type'>(() => {
+    if (typeof window === 'undefined') return 'name'
+    return (localStorage.getItem('drive_sort_by') as 'name' | 'updated_at' | 'size' | 'type') || 'name'
+  })
 
-  const [savingProfile, setSavingProfile] = useState(false)
-  const [savingPass, setSavingPass] = useState(false)
 
   const drive = user?.drive ?? {
-    storage_quota: 5368709120,
+    storage_quota: 107374182400,
     used_storage: 0,
-    available_storage: 5368709120,
+    available_storage: 107374182400,
     quota_percentage: 0,
     is_drive_enabled: true,
-  }
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) return
-    setSavingProfile(true)
-    try {
-      const updatedUser = await updateUserProfile(name.trim())
-      setUser(updatedUser)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('drive_user', JSON.stringify(updatedUser))
-      }
-      toast.success('Profile name updated successfully!')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update profile name')
-    } finally {
-      setSavingProfile(false)
-    }
-  }
-
-  const handleSavePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPass !== confirmPass) {
-      toast.error('New password and confirm password do not match')
-      return
-    }
-    setSavingPass(true)
-    try {
-      await updateUserPassword({
-        current_password: currentPass,
-        password: newPass,
-        password_confirmation: confirmPass,
-      })
-      setCurrentPass('')
-      setNewPass('')
-      setConfirmPass('')
-      toast.success('Password updated successfully!')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to update password')
-    } finally {
-      setSavingPass(false)
-    }
   }
 
   return (
@@ -82,114 +52,21 @@ export default function SettingsPage() {
       <div className="flex items-center gap-3 px-6 py-4 border-b border-border shrink-0">
         <Settings className="w-5 h-5 text-muted-foreground" />
         <div>
-          <h1 className="text-base font-semibold">Settings</h1>
-          <p className="text-xs text-muted-foreground">Manage your account preferences and security</p>
+          <h1 className="text-base font-semibold">{t('settings')}</h1>
+          <p className="text-xs text-muted-foreground">{t('customizeExperience')}</p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-3xl w-full mx-auto px-6 py-8 space-y-8">
+      <div className="w-full px-5 sm:px-6 lg:px-8 py-8 space-y-8">
 
-        {/* Section 1: Profile Settings */}
-        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold">Account Profile</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Update your personal account display information.</p>
-
-          <form onSubmit={handleSaveProfile} className="space-y-4 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Full Name</label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your Name"
-                  className="bg-secondary/50 border-border"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Email Address</label>
-                <Input
-                  value={user?.email ?? ''}
-                  disabled
-                  className="bg-secondary/20 border-border opacity-70 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button size="sm" type="submit" disabled={savingProfile} className="gap-1.5">
-                <Save className="w-3.5 h-3.5" /> Save Profile
-              </Button>
-            </div>
-          </form>
-        </section>
-
-        {/* Section 2: Security & Password */}
-        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-semibold">Security & Password</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Ensure your account password stays strong and secure.</p>
-
-          <form onSubmit={handleSavePassword} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Current Password</label>
-              <Input
-                type="password"
-                value={currentPass}
-                onChange={e => setCurrentPass(e.target.value)}
-                placeholder="••••••••"
-                className="bg-secondary/50 border-border max-w-md"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">New Password</label>
-                <Input
-                  type="password"
-                  value={newPass}
-                  onChange={e => setNewPass(e.target.value)}
-                  placeholder="Minimum 8 characters"
-                  className="bg-secondary/50 border-border"
-                  required
-                  minLength={8}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Confirm New Password</label>
-                <Input
-                  type="password"
-                  value={confirmPass}
-                  onChange={e => setConfirmPass(e.target.value)}
-                  placeholder="Re-enter new password"
-                  className="bg-secondary/50 border-border"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Button size="sm" type="submit" disabled={savingPass} className="gap-1.5">
-                <Lock className="w-3.5 h-3.5" /> Update Password
-              </Button>
-            </div>
-          </form>
-        </section>
-
-        {/* Section 3: Preferences */}
+        {/* Section 1: Preferences */}
         <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
           <div className="flex items-center gap-2">
             <Monitor className="w-4 h-4 text-blue-400" />
-            <h2 className="text-sm font-semibold">Preferences</h2>
+            <h2 className="text-sm font-semibold">{t('preferences')}</h2>
           </div>
-          <p className="text-xs text-muted-foreground">Customize your Drive display options.</p>
+          <p className="text-xs text-muted-foreground">{t('preferencesDescription')}</p>
 
           <div className="space-y-4 pt-2">
             {/* Theme */}
@@ -207,11 +84,12 @@ export default function SettingsPage() {
                   <button
                     key={id}
                     onClick={() => {
-                      setTheme(id as any)
+                      const nextTheme = id as Theme
+                      setTheme(nextTheme)
                       toast.success(`Theme set to ${label}`)
                     }}
                     className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    'flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
                       theme === id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     )}
                   >
@@ -231,18 +109,18 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center rounded-lg border border-border p-1 bg-secondary/30">
                 <button
-                  onClick={() => { setDefaultView('grid'); toast.success('Default view set to Grid') }}
+                  onClick={() => { setDefaultView('grid'); localStorage.setItem('drive_default_view', 'grid'); toast.success('Default view set to Grid') }}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
                     defaultView === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
                   )}
                 >
                   Grid View
                 </button>
                 <button
-                  onClick={() => { setDefaultView('list'); toast.success('Default view set to List') }}
+                  onClick={() => { setDefaultView('list'); localStorage.setItem('drive_default_view', 'list'); toast.success('Default view set to List') }}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                    'px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
                     defaultView === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
                   )}
                 >
@@ -250,10 +128,104 @@ export default function SettingsPage() {
                 </button>
               </div>
             </div>
+
+            <Separator />
+
+            {/* Default sorting */}
+            <div className="flex items-center justify-between gap-6">
+              <div>
+                <p className="text-sm font-medium">Default Sort Order</p>
+                <p className="text-xs text-muted-foreground">Choose how files are arranged in your Drive.</p>
+              </div>
+              <select
+                value={sortBy}
+                onChange={e => {
+                  const nextSort = e.target.value as 'name' | 'updated_at' | 'size' | 'type'
+                  setSortBy(nextSort)
+                  localStorage.setItem('drive_sort_by', nextSort)
+                }}
+                className="h-10 min-w-44 rounded-xl border border-border bg-secondary/60 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="name">Name</option>
+                <option value="updated_at">Last modified</option>
+                <option value="size">File size</option>
+                <option value="type">Type</option>
+              </select>
+            </div>
           </div>
         </section>
 
-        {/* Section 4: API & Developer Access (Admin Only) */}
+        {/* Section 4: Language */}
+        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold">{t('language')}</h2>
+            <p className="text-xs text-muted-foreground mt-1">{t('languageDescription')}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {([
+              ['en', t('english')],
+              ['id', t('indonesian')],
+            ] as [Language, string][]).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setLanguage(value)
+                  toast.success(t('languageSaved'))
+                }}
+                className={cn(
+                  'rounded-xl border px-4 py-3 text-left text-sm font-medium transition-colors',
+                  language === value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:bg-accent'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Section 5: Storage */}
+        <section className="bg-card border border-border rounded-2xl p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+              <HardDrive className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">Storage</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Keep track of the space available in your private drive.</p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-secondary/35 p-5">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-3xl font-semibold tracking-tight">{formatBytes(drive.used_storage)}</p>
+                <p className="text-sm text-muted-foreground mt-1">used of {formatBytes(drive.storage_quota)}</p>
+              </div>
+              <span className="text-sm font-semibold text-primary">{drive.quota_percentage}%</span>
+            </div>
+            <div className="mt-4 h-3 w-full overflow-hidden rounded-full bg-card border border-border/60">
+              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(drive.quota_percentage, 100)}%` }} />
+            </div>
+            <div className="mt-3 flex justify-between text-xs text-muted-foreground">
+              <span>{formatBytes(drive.available_storage)} available</span>
+              <span>{drive.is_drive_enabled ? 'Drive active' : 'Drive disabled'}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 6: Active Sessions */}
+        <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div><h2 className="text-sm font-semibold">Active Sessions</h2><p className="text-xs text-muted-foreground mt-1">Manage devices currently signed in to Cloud NL.</p></div>
+            <Button size="sm" variant="destructive" onClick={() => logoutAllMutation.mutate()} disabled={logoutAllMutation.isPending || sessions.length === 0}>Logout all</Button>
+          </div>
+          <div className="space-y-2">{visibleSessions.map(session => <div key={session.id} className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-border bg-secondary/30 p-3"><div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{session.name} {session.is_current && <Badge variant="secondary" className="ml-1 text-[10px]">Current</Badge>}</p><p className="text-xs text-muted-foreground mt-1">Signed in {new Date(session.created_at).toLocaleDateString()} · {session.last_used_at ? `Last used ${new Date(session.last_used_at).toLocaleString()}` : 'Not used yet'}</p></div><Button size="sm" variant="outline" onClick={() => revokeSessionMutation.mutate(session.id)} disabled={session.is_current || revokeSessionMutation.isPending}>{session.is_current ? 'This device' : 'Revoke'}</Button></div>)}</div>
+          {sessionPageCount > 1 && <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2"><p className="text-xs text-muted-foreground">Showing {(sessionPage - 1) * sessionPageSize + 1}–{Math.min(sessionPage * sessionPageSize, sessions.length)} of {sessions.length} sessions</p><div className="flex items-center gap-1"><Button size="icon-sm" variant="outline" onClick={() => setSessionPage(page => Math.max(1, page - 1))} disabled={sessionPage === 1} aria-label="Previous sessions page"><ChevronLeft className="w-4 h-4" /></Button>{Array.from({ length: sessionPageCount }, (_, index) => index + 1).map(page => <Button key={page} size="icon-sm" variant={page === sessionPage ? 'default' : 'outline'} onClick={() => setSessionPage(page)} aria-label={`Sessions page ${page}`}>{page}</Button>)}<Button size="icon-sm" variant="outline" onClick={() => setSessionPage(page => Math.min(sessionPageCount, page + 1))} disabled={sessionPage === sessionPageCount} aria-label="Next sessions page"><ChevronRight className="w-4 h-4" /></Button></div></div>}
+        </section>
+
+        {/* Section 7: API & Developer Access (Admin Only) */}
         {user?.role === 'admin' && (
           <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
             <div className="flex items-center gap-2">
@@ -263,15 +235,13 @@ export default function SettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">Personal Access Token for REST API integrations.</p>
 
-            <div className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-secondary/30">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between p-3.5 rounded-xl border border-border bg-secondary/30">
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <Badge variant="outline" className="font-mono text-[10px]">SANCTUM API TOKEN</Badge>
-                <span className="text-xs font-mono text-muted-foreground">••••••••••••••••••••</span>
+                <span className="text-xs font-mono text-muted-foreground break-anywhere">••••••••••••••••••••</span>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button size="sm" variant="outline" onClick={() => {
                   const token = localStorage.getItem('drive_token')
                   if (token) {
                     navigator.clipboard.writeText(token)
@@ -279,11 +249,11 @@ export default function SettingsPage() {
                   } else {
                     toast.error('No token found. Please log in.')
                   }
-                }}
-                className="text-xs gap-1.5"
-              >
+                }} className="text-xs gap-1.5 w-full sm:w-auto">
                 <Key className="w-3.5 h-3.5" /> Copy Bearer Token
-              </Button>
+                </Button>
+                <Button size="sm" variant="destructive" onClick={async () => { const token = await regenerateApiToken(); localStorage.setItem('drive_token', token); toast.success('API token regenerated. Copy the new token now.') }} className="text-xs gap-1.5 w-full sm:w-auto">Regenerate</Button>
+              </div>
             </div>
           </section>
         )}

@@ -3,12 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Folder;
-use App\Models\File as FileModel;
+use App\Models\SystemSetting;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
@@ -20,31 +17,19 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Rifki Anashirul',
                 'password' => Hash::make('password'),
                 'role' => 'admin',
-                'storage_quota' => 5368709120, // 5GB
+                'storage_quota' => 107374182400, // 100GB
                 'used_storage' => 0,
                 'is_drive_enabled' => true,
             ]
         );
+        if (!$admin->email_verified_at) {
+            $admin->forceFill(['email_verified_at' => now()])->save();
+        }
 
-        // Regular User
-        $user = User::firstOrCreate(
-            ['email' => 'budi@naslabs.id'],
-            [
-                'name' => 'Budi Santoso',
-                'password' => Hash::make('password'),
-                'role' => 'user',
-                'storage_quota' => 5368709120,
-                'used_storage' => 0,
-                'is_drive_enabled' => true,
-            ]
-        );
-
-        // Create sample folder for Admin
-        $folder = Folder::create([
-            'uuid' => (string) Str::uuid(),
-            'user_id' => $admin->id,
-            'name' => 'Dokumen Kerja',
-            'color' => '#3B82F6',
-        ]);
+        // Keep the bundled frontend logo as the initial branding asset.
+        // Admin uploads are preserved because this only runs when the key is absent.
+        SystemSetting::firstOrCreate(['key' => 'logo_path'], ['value' => 'default:logo.png']);
+        SystemSetting::firstOrCreate(['key' => 'favicon_path'], ['value' => 'default:logo.png']);
+        SystemSetting::firstOrCreate(['key' => 'pwa_icon_path'], ['value' => 'default:logo.png']);
     }
 }

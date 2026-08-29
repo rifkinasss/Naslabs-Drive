@@ -1,15 +1,16 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Loader2, Folder as FolderIcon } from 'lucide-react'
-import { getMimeIcon, formatDate } from '@/lib/helpers'
+import { Search, Loader2, Folder as FolderIcon, SlidersHorizontal, Star } from 'lucide-react'
+import { getMimeIcon, formatBytes, formatDate } from '@/lib/helpers'
 import { searchDrive } from '@/services/drive-api'
 import { EmptyState } from '@/components/drive/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { ErrorState } from '@/components/ui/error-state'
 
 const FILTERS = ['All', 'Images', 'Documents', 'Videos', 'Folders'] as const
 type FilterType = typeof FILTERS[number]
@@ -18,11 +19,22 @@ function SearchContent() {
   const searchParams = useSearchParams()
   const q = searchParams.get('q') ?? ''
   const [activeFilter, setActiveFilter] = useState<FilterType>('All')
+  const [debouncedQuery, setDebouncedQuery] = useState(q)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [favoriteOnly, setFavoriteOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'name' | 'updated_at' | 'size'>('name')
+  const [minSize, setMinSize] = useState('')
+  const [maxSize, setMaxSize] = useState('')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['search', q, activeFilter],
-    queryFn: () => searchDrive(q, activeFilter),
-    enabled: true,
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(q), 300)
+    return () => window.clearTimeout(timeout)
+  }, [q])
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['search', debouncedQuery, activeFilter, favoriteOnly, sortBy, minSize, maxSize],
+    queryFn: () => searchDrive(debouncedQuery, activeFilter, { favorite: favoriteOnly || undefined, sort: sortBy, min_size: minSize ? Number(minSize) : undefined, max_size: maxSize ? Number(maxSize) : undefined }),
+    enabled: debouncedQuery.trim().length > 0,
   })
 
   const matchingFolders = data?.folders ?? []
@@ -45,7 +57,7 @@ function SearchContent() {
           )}
         </div>
         {/* Filters */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none">
           {FILTERS.map(f => (
             <button
               key={f}
@@ -60,7 +72,14 @@ function SearchContent() {
               {f}
             </button>
           ))}
+          <button onClick={() => setShowAdvanced(value => !value)} className={cn('ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors', showAdvanced ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground')}><SlidersHorizontal className="size-3.5" /> Filters</button>
         </div>
+        {showAdvanced && <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-secondary/30 p-3">
+          <label className="flex items-center gap-2 pb-2 text-xs font-medium"><input type="checkbox" checked={favoriteOnly} onChange={event => setFavoriteOnly(event.target.checked)} className="accent-primary" /><Star className="size-3.5 text-amber-500" /> Favorites only</label>
+          <label className="space-y-1 text-xs text-muted-foreground"><span className="block">Sort by</span><select value={sortBy} onChange={event => setSortBy(event.target.value as typeof sortBy)} className="h-9 rounded-lg border border-border bg-card px-2 text-foreground"><option value="name">Name</option><option value="updated_at">Last modified</option><option value="size">File size</option></select></label>
+          <label className="space-y-1 text-xs text-muted-foreground"><span className="block">Min size (bytes)</span><input type="number" min="0" value={minSize} onChange={event => setMinSize(event.target.value)} placeholder="0" className="h-9 w-32 rounded-lg border border-border bg-card px-2 text-foreground" /></label>
+          <label className="space-y-1 text-xs text-muted-foreground"><span className="block">Max size (bytes)</span><input type="number" min="0" value={maxSize} onChange={event => setMaxSize(event.target.value)} placeholder="Unlimited" className="h-9 w-32 rounded-lg border border-border bg-card px-2 text-foreground" /></label>
+        </div>}
       </div>
 
       {/* Results */}
@@ -69,6 +88,8 @@ function SearchContent() {
           <div className="flex items-center justify-center py-24 text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin mr-2" /> Searching...
           </div>
+        ) : isError ? (
+          <ErrorState onRetry={() => refetch()} />
         ) : !q ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-5">
@@ -80,7 +101,7 @@ function SearchContent() {
         ) : !hasResults ? (
           <EmptyState variant="search" query={q} />
         ) : (
-          <div className="max-w-3xl space-y-1">
+          <div className="w-full space-y-1">
             {matchingFolders.map(folder => (
               <Link
                 key={folder.uuid}
@@ -113,7 +134,7 @@ function SearchContent() {
                       <HighlightMatch text={file.name} query={q} />
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {file.size_human} • {formatDate(file.updated_at)}
+                      {file.size_human || formatBytes(file.size)} • {formatDate(file.updated_at)}
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] shrink-0">
