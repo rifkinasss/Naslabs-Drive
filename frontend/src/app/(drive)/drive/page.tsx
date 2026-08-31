@@ -92,7 +92,8 @@ export default function DrivePage() {
     mutationFn: async ({ isFile, uuid, newName, color }: { isFile: boolean; uuid: string; newName: string; color?: string }) => {
       return isFile ? renameFile(uuid, newName) : renameFolder(uuid, newName, color)
     },
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
+      if ('extension' in updatedItem) setPreviewFile(current => current?.uuid === updatedItem.uuid ? { ...current, name: updatedItem.name, updated_at: updatedItem.updated_at } : current)
       queryClient.invalidateQueries({ queryKey: ['drive'] })
     },
     onError: (err: unknown) => toast.error(getApiErrorMessage(err, 'Failed to rename')),
@@ -353,6 +354,7 @@ export default function DrivePage() {
         allFiles={files}
         open={previewOpen}
         onOpenChange={setPreviewOpen}
+        onFileChange={setPreviewFile}
       />
       <ShareDialog file={shareTarget} open={shareTarget !== null} onOpenChange={open => { if (!open) setShareTarget(null) }} />
       <FolderShareDialog folder={folderShareTarget} open={folderShareTarget !== null} onOpenChange={open => { if (!open) setFolderShareTarget(null) }} />

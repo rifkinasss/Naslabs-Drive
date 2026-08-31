@@ -47,12 +47,14 @@ export function FolderCard({ folder, selected, onSelect, onDelete, onRename, onM
         'border-border'
       )}
     >
-      {/* Folder icon */}
-      <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-3 bg-secondary/80 group-hover:bg-secondary relative">
-        <Folder className="w-6 h-6" style={{ color: folderColor }} />
+      {/* Folder thumbnail */}
+      <div className="relative mb-3 aspect-[4/3] w-full overflow-hidden rounded-lg bg-secondary/80 transition-colors group-hover:bg-secondary">
+        <div className="flex size-full items-center justify-center">
+          <Folder className="size-20 drop-shadow-sm transition-transform duration-300 group-hover:scale-105" style={{ color: folderColor }} strokeWidth={1.5} />
+        </div>
         {folderColor && (
           <div
-            className="absolute bottom-1 right-1 w-2 h-2 rounded-full"
+            className="absolute bottom-3 right-3 size-3 rounded-full ring-4 ring-secondary/60 transition-transform group-hover:scale-110"
             style={{ backgroundColor: folderColor }}
           />
         )}

@@ -7,10 +7,11 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DriveFile, DriveFolder } from '@/types/drive'
-import { getMimeIcon, formatBytes, formatDate } from '@/lib/helpers'
+import { formatBytes, formatDate } from '@/lib/helpers'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { downloadFile } from '@/services/drive-api'
+import { FileThumbnail } from '@/components/drive/FileThumbnail'
 
 interface FileRowProps {
   file: DriveFile
@@ -27,8 +28,6 @@ interface FileRowProps {
 }
 
 export function FileRow({ file, selected, onSelect, onDelete, onRename, onPreview, onMove, onShare, onVersions, onInfo, onToggleFavorite }: FileRowProps) {
-  const { Icon, color } = getMimeIcon(file.mime_type)
-
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation()
     try {
@@ -47,7 +46,10 @@ export function FileRow({ file, selected, onSelect, onDelete, onRename, onPrevie
 
   return (
     <div
-      onClick={() => onSelect?.(file.uuid)}
+      onClick={event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) onSelect?.(file.uuid)
+        else onPreview?.(file)
+      }}
       onDoubleClick={() => onPreview?.(file)}
       draggable
       onDragStart={event => { event.dataTransfer.setData('application/x-cloud-item', JSON.stringify({ kind: 'file', uuid: file.uuid })); event.dataTransfer.effectAllowed = 'move' }}
@@ -57,9 +59,10 @@ export function FileRow({ file, selected, onSelect, onDelete, onRename, onPrevie
         selected ? 'bg-primary/8 ring-1 ring-primary/20' : ''
       )}
     >
-      <div className="w-8 h-8 rounded-md bg-secondary flex items-center justify-center shrink-0">
-        <Icon className={cn('w-4 h-4', color)} />
-      </div>
+      <button type="button" aria-label={`Select ${file.name}`} onClick={event => { event.stopPropagation(); onSelect?.(file.uuid) }} className={cn('flex size-5 shrink-0 items-center justify-center rounded border bg-card text-xs transition-colors', selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-transparent hover:border-primary/60')}>
+        ✓
+      </button>
+      <FileThumbnail file={file} variant="row" />
       <span className="flex-1 text-sm font-medium truncate">{file.name}</span>
       <span className="text-xs text-muted-foreground w-16 text-right shrink-0">{file.size_human || formatBytes(file.size)}</span>
       <span className="text-xs text-muted-foreground w-24 text-right shrink-0 hidden sm:block">{formatDate(file.updated_at)}</span>

@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { HardDrive, Users, Files, Upload, TrendingUp, Activity, Loader2, AlertTriangle, Database, Server, CheckCircle2, XCircle, Archive, RefreshCw, BarChart3, Trash2, ChevronDown, ChevronUp, ListChecks, ShieldCheck, Gauge } from 'lucide-react'
-import { cleanupAdminStorage, deleteAdminBackup, fetchAdminAnalytics, fetchAdminBackupPreview, fetchAdminBackups, fetchAdminLogs, fetchAdminStorageOverview, fetchAdminSystemHealth, fetchAdminUsers, restoreAdminBackup, runAdminBackup } from '@/services/drive-api'
+import { cleanupAdminStorage, deleteAdminBackup, fetchAdminAnalytics, fetchAdminBackupPreview, fetchAdminBackups, fetchAdminLatency, fetchAdminLogs, fetchAdminStorageOverview, fetchAdminSystemHealth, fetchAdminUsers, restoreAdminBackup, runAdminBackup } from '@/services/drive-api'
 import { formatBytes, formatDate, getActionLabel, getActionColor } from '@/lib/helpers'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { ErrorState } from '@/components/ui/error-state'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from 'recharts'
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { useLanguage } from '@/providers/LanguageProvider'
 
@@ -23,6 +23,12 @@ function FileDistributionChart({ data }: { data: { type: string; count: number; 
   if (data.length === 0) return <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">No file distribution data yet</div>
   const colors = ['#0ea5e9', '#14b8a6', '#8b5cf6', '#f59e0b', '#f43f5e']
   return <div><ChartContainer config={{ files: { label: 'Files', color: '#0ea5e9' } }} className="h-44 w-full"><PieChart><ChartTooltip content={<ChartTooltipContent hideLabel />} /><Pie data={data.slice(0, 5)} dataKey="count" nameKey="type" innerRadius={42} outerRadius={68} paddingAngle={4}>{data.slice(0, 5).map((item, index) => <Cell key={item.type} fill={colors[index % colors.length]} />)}</Pie></PieChart></ChartContainer><div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2">{data.slice(0, 5).map((item, index) => <div key={item.type} className="flex max-w-full items-center gap-1.5 text-xs text-muted-foreground"><span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: colors[index % colors.length] }} /><span className="max-w-28 truncate" title={item.type}>{item.type}</span><span className="font-medium text-foreground">{item.count}</span></div>)}</div></div>
+}
+
+function LatencyChart({ points }: { points: { hour: string; upload: { latency_ms: number }; download: { latency_ms: number }; preview: { latency_ms: number } }[] }) {
+  if (points.length === 0 || points.every(point => point.upload.latency_ms === 0 && point.download.latency_ms === 0 && point.preview.latency_ms === 0)) return <div className="flex h-52 items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">Belum ada data latency transfer</div>
+  const data = points.map(point => ({ ...point, label: point.hour.slice(11, 16) }))
+  return <ChartContainer config={{ upload: { label: 'Upload', color: '#8b5cf6' }, download: { label: 'Download', color: '#0ea5e9' }, preview: { label: 'Preview', color: '#14b8a6' } }} className="h-52 w-full"><LineChart accessibilityLayer data={data} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}><CartesianGrid vertical={false} strokeDasharray="4 4" /><XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} /><YAxis allowDecimals={false} tickLine={false} axisLine={false} width={38} tickFormatter={value => `${value}ms`} /><ChartTooltip content={<ChartTooltipContent />} /><ChartLegend content={<ChartLegendContent />} /><Line type="monotone" dataKey="upload.latency_ms" name="Upload" stroke="var(--color-upload)" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="download.latency_ms" name="Download" stroke="var(--color-download)" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="preview.latency_ms" name="Preview" stroke="var(--color-preview)" strokeWidth={2.5} dot={false} /></LineChart></ChartContainer>
 }
 
 function localizedAction(action: string, language: 'en' | 'id'): string {
@@ -50,6 +56,7 @@ export default function AdminPage() {
     queryKey: ['admin-system-health'],
     queryFn: fetchAdminSystemHealth,
   })
+  const { data: latency } = useQuery({ queryKey: ['admin-latency'], queryFn: fetchAdminLatency, refetchInterval: 60_000 })
   const { data: backups = [], isLoading: isLoadingBackups } = useQuery({ queryKey: ['admin-backups'], queryFn: fetchAdminBackups })
   const { data: storageOverview } = useQuery({ queryKey: ['admin-storage-overview'], queryFn: fetchAdminStorageOverview })
   const { data: analytics } = useQuery({ queryKey: ['admin-analytics'], queryFn: fetchAdminAnalytics })
@@ -72,8 +79,12 @@ export default function AdminPage() {
   })
   const fallbackFileTypes = (storageOverview?.largest_files ?? []).reduce<{ type: string; count: number; bytes: number }[]>((items, file) => {
     const existing = items.find(item => item.type === file.mime_type)
-    if (existing) existing.count += 1, existing.bytes += file.size
-    else items.push({ type: file.mime_type || 'unknown', count: 1, bytes: file.size })
+    if (existing) {
+      existing.count += 1
+      existing.bytes += file.size
+    } else {
+      items.push({ type: file.mime_type || 'unknown', count: 1, bytes: file.size })
+    }
     return items
   }, [])
   const analyticsData = analytics ? { ...analytics, by_type: analytics.by_type.length > 0 ? analytics.by_type : fallbackFileTypes, activity_by_day: analytics.activity_by_day.length > 0 ? analytics.activity_by_day : fallbackActivity } : {
@@ -164,6 +175,15 @@ export default function AdminPage() {
                 <button onClick={() => refetchHealth()} className="text-xs text-primary hover:underline mt-4">Refresh health checks</button>
               </div>
             )}
+
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div><h2 className="flex items-center gap-2 text-sm font-semibold"><Gauge className="size-4 text-primary" /> Transfer latency</h2><p className="mt-1 text-xs text-muted-foreground">Rata-rata response per jam · 24 jam terakhir</p></div>
+                {latency && <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">Auto-refresh 1 menit</span>}
+              </div>
+              <LatencyChart points={latency?.points ?? []} />
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-muted-foreground"><span>Latency dihitung dari request API aktual</span><span>0 ms berarti belum ada request pada jam tersebut</span></div>
+            </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="overflow-hidden rounded-2xl border border-border bg-card">

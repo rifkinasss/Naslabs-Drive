@@ -92,7 +92,8 @@ export default function FolderPage() {
     mutationFn: async ({ isFile, targetUuid, newName, color }: { isFile: boolean; targetUuid: string; newName: string; color?: string }) => {
       return isFile ? renameFile(targetUuid, newName) : renameFolder(targetUuid, newName, color)
     },
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
+      if ('extension' in updatedItem) setPreviewFile(current => current?.uuid === updatedItem.uuid ? { ...current, name: updatedItem.name, updated_at: updatedItem.updated_at } : current)
       queryClient.invalidateQueries({ queryKey: ['drive', uuid] })
     },
     onError: (err: unknown) => toast.error(getApiErrorMessage(err, 'Failed to rename')),
@@ -314,7 +315,7 @@ export default function FolderPage() {
       </div>
       <CreateFolderDialog open={createFolderOpen} onOpenChange={setCreateFolderOpen} onConfirm={(name, color) => createFolderMutation.mutate({ name, color })} />
       <RenameDialog key={renameTarget?.uuid ?? 'rename-dialog'} open={renameOpen} onOpenChange={setRenameOpen} item={renameTarget} onConfirm={handleRenameConfirm} />
-      <FilePreviewModal file={previewFile} allFiles={files} open={previewOpen} onOpenChange={setPreviewOpen} />
+      <FilePreviewModal file={previewFile} allFiles={files} open={previewOpen} onOpenChange={setPreviewOpen} onFileChange={setPreviewFile} />
       <ShareDialog file={shareTarget} open={shareTarget !== null} onOpenChange={open => { if (!open) setShareTarget(null) }} />
       <FolderShareDialog folder={folderShareTarget} open={folderShareTarget !== null} onOpenChange={open => { if (!open) setFolderShareTarget(null) }} />
       <VersionHistoryDialog file={versionTarget} open={versionTarget !== null} onOpenChange={open => { if (!open) setVersionTarget(null) }} onRestored={() => queryClient.invalidateQueries({ queryKey: ['drive', uuid] })} />

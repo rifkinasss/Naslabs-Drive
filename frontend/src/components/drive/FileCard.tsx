@@ -1,16 +1,16 @@
 'use client'
 
-import { useState } from 'react'
 import { MoreVertical, Download, Pencil, Trash2, Move, Info, Eye, Share2, History, Star } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DriveFile } from '@/types/drive'
-import { getMimeIcon, formatBytes, formatDate } from '@/lib/helpers'
+import { formatBytes, formatDate } from '@/lib/helpers'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { downloadFile } from '@/services/drive-api'
+import { FileThumbnail } from '@/components/drive/FileThumbnail'
 
 interface FileCardProps {
   file: DriveFile
@@ -27,8 +27,6 @@ interface FileCardProps {
 }
 
 export function FileCard({ file, selected, onSelect, onDelete, onRename, onPreview, onMove, onShare, onVersions, onInfo, onToggleFavorite }: FileCardProps) {
-  const { Icon, color } = getMimeIcon(file.mime_type)
-
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation()
     try {
@@ -55,7 +53,10 @@ export function FileCard({ file, selected, onSelect, onDelete, onRename, onPrevi
 
   return (
     <div
-      onClick={() => onSelect?.(file.uuid)}
+      onClick={event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) onSelect?.(file.uuid)
+        else onPreview?.(file)
+      }}
       onDoubleClick={() => onPreview?.(file)}
       draggable
       onDragStart={event => { event.dataTransfer.setData('application/x-cloud-item', JSON.stringify({ kind: 'file', uuid: file.uuid })); event.dataTransfer.effectAllowed = 'move' }}
@@ -67,13 +68,19 @@ export function FileCard({ file, selected, onSelect, onDelete, onRename, onPrevi
           : 'border-border'
       )}
     >
-      {/* File icon */}
-      <div className={cn(
-        'w-12 h-12 rounded-lg flex items-center justify-center mb-3',
-        'bg-secondary/80 group-hover:bg-secondary'
-      )}>
-        <Icon className={cn('w-6 h-6', color)} />
-      </div>
+      <FileThumbnail file={file} />
+
+      <button
+        type="button"
+        aria-label={`Select ${file.name}`}
+        onClick={event => { event.stopPropagation(); onSelect?.(file.uuid) }}
+        className={cn(
+          'absolute left-2.5 top-2.5 z-10 flex size-5 items-center justify-center rounded border bg-card/90 text-xs transition-opacity',
+          selected ? 'border-primary bg-primary text-primary-foreground opacity-100' : 'border-border text-transparent opacity-0 group-hover:opacity-100'
+        )}
+      >
+        ✓
+      </button>
 
       {/* File info */}
       <p className="text-sm font-medium leading-tight truncate pr-5" title={file.name}>

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\FileShare;
+use App\Models\FolderShare;
 use App\Services\EmailVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -288,6 +290,12 @@ class AuthController extends Controller
             $notifications->push(['id' => 'quota', 'type' => 'warning', 'title' => 'Storage almost full', 'message' => "Your storage usage is above {$quotaAlertPercent}%."]);
         }
         $user->load('files.shares');
+        FileShare::with(['file', 'creator'])->whereHas('recipients', fn ($q) => $q->where('user_id', $user->id))->latest()->limit(10)->get()->each(function ($share) use ($notifications) {
+            $notifications->push(['id' => 'received-file-share-' . $share->id, 'type' => 'info', 'title' => 'A file was shared with you', 'message' => $share->creator->name . ' shared ' . $share->file->name . ' with you.']);
+        });
+        FolderShare::with(['folder', 'creator'])->whereHas('recipients', fn ($q) => $q->where('user_id', $user->id))->latest()->limit(10)->get()->each(function ($share) use ($notifications) {
+            $notifications->push(['id' => 'received-folder-share-' . $share->id, 'type' => 'info', 'title' => 'A folder was shared with you', 'message' => $share->creator->name . ' shared ' . $share->folder->name . ' with you.']);
+        });
         $user->files->flatMap->shares->filter(fn ($share) => $share->expires_at && $share->expires_at->isFuture() && now()->diffInDays($share->expires_at, false) <= 3)->each(function ($share) use ($notifications) {
             $notifications->push(['id' => 'share-' . $share->id, 'type' => 'info', 'title' => 'Shared link expiring soon', 'message' => $share->file->name . ' link expires ' . $share->expires_at->toDateString() . '.']);
         });

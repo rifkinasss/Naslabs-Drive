@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FolderShare extends Model
 {
-    protected $fillable = ['folder_id', 'created_by', 'token', 'password', 'expires_at', 'permission'];
+    protected $fillable = ['folder_id', 'created_by', 'token', 'visibility', 'password', 'expires_at', 'permission'];
     protected $hidden = ['password'];
 
     protected function casts(): array
@@ -17,6 +17,7 @@ class FolderShare extends Model
 
     public function folder(): BelongsTo { return $this->belongsTo(Folder::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+    public function recipients() { return $this->hasMany(FolderShareRecipient::class); }
 
     public function isAvailable(): bool
     {

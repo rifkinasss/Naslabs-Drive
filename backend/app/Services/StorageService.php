@@ -33,7 +33,7 @@ class StorageService
             throw new \RuntimeException("This file exceeds the {$maxUploadMb} MB upload limit.");
         }
 
-        $allowedExtensions = collect(explode(',', (string) ($settings->get('allowed_extensions') ?: 'jpg,jpeg,png,webp,gif,pdf,txt,doc,docx,xls,xlsx,zip')))
+        $allowedExtensions = collect(explode(',', (string) ($settings->get('allowed_extensions') ?: 'jpg,jpeg,png,webp,gif,heic,heif,pdf,txt,doc,docx,xls,xlsx,zip')))
             ->map(fn (string $value) => strtolower(trim($value)))->filter()->all();
         if (!in_array($extension, $allowedExtensions, true)) {
             throw new \InvalidArgumentException("File extension .{$extension} is not allowed by the current upload policy.");

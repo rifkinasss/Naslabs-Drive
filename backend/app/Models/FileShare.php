@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FileShare extends Model
 {
     protected $fillable = [
-        'file_id', 'created_by', 'token', 'password', 'expires_at', 'max_downloads', 'download_count',
+        'file_id', 'created_by', 'token', 'visibility', 'permission', 'password', 'expires_at', 'max_downloads', 'download_count',
     ];
 
     protected $hidden = ['password'];
@@ -20,6 +20,7 @@ class FileShare extends Model
 
     public function file(): BelongsTo { return $this->belongsTo(File::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+    public function recipients() { return $this->hasMany(FileShareRecipient::class); }
 
     public function isAvailable(): bool
     {

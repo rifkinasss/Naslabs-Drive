@@ -17,7 +17,7 @@ class SettingsController extends Controller
         'app_name' => 'Cloud NL',
         'max_upload_mb' => '512',
         'share_expiry_days' => '30',
-        'allowed_extensions' => 'jpg,jpeg,png,webp,gif,pdf,txt,doc,docx,xls,xlsx,zip',
+        'allowed_extensions' => 'jpg,jpeg,png,webp,gif,heic,heif,pdf,txt,doc,docx,xls,xlsx,zip',
         'default_quota_gb' => '100',
         'quota_alert_percent' => '80',
         'share_require_password' => '0',

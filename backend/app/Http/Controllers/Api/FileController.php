@@ -74,8 +74,14 @@ class FileController extends Controller
         abort_unless($meta && $meta['user_id'] === $request->user()->id && $data['index'] < $meta['total_chunks'], 404, 'Upload session not found.');
         $path = 'uploads/tmp/' . $uploadId . '-' . $data['index'] . '.part';
         $request->file('chunk')->storeAs('uploads/tmp', $uploadId . '-' . $data['index'] . '.part', 'local');
-        $meta['chunks'][(int) $data['index']] = $path; Cache::put($key, $meta, now()->addHours(2));
-        return response()->json(['received' => count($meta['chunks']), 'total' => $meta['total_chunks']]);
+        $received = Cache::lock($key . ':lock', 10)->block(5, function () use ($key, $data, $path) {
+            $latest = Cache::get($key);
+            if (!$latest) return 0;
+            $latest['chunks'][(int) $data['index']] = $path;
+            Cache::put($key, $latest, now()->addHours(2));
+            return count($latest['chunks']);
+        });
+        return response()->json(['received' => $received, 'total' => $meta['total_chunks']]);
     }
 
     public function resumableCancel(Request $request, string $uploadId): JsonResponse
@@ -101,7 +107,7 @@ class FileController extends Controller
         return response()->json(['message' => 'Resumable upload completed.', 'file' => $file], 201);
     }
 
-    public function download(Request $request, string $uuid): StreamedResponse|JsonResponse
+    public function download(Request $request, string $uuid): BinaryFileResponse|JsonResponse
     {
         $user = $request->user();
 
@@ -115,7 +121,10 @@ class FileController extends Controller
 
         $this->logService->log($user, 'download', 'file', $file->name, $file->id, $request);
 
-        return Storage::disk('local')->download($file->storage_path, $file->original_name);
+        return response()->download(Storage::disk('local')->path($file->storage_path), $file->original_name, [
+            'Content-Type' => $file->mime_type,
+            'Accept-Ranges' => 'bytes',
+        ]);
     }
 
     public function downloadZip(Request $request): BinaryFileResponse|JsonResponse
@@ -133,7 +142,7 @@ class FileController extends Controller
         return response()->download($zipPath, 'cloud-nl-files.zip')->deleteFileAfterSend(true);
     }
 
-    public function preview(Request $request, string $uuid): StreamedResponse|JsonResponse
+    public function preview(Request $request, string $uuid): BinaryFileResponse|JsonResponse
     {
         $user = $request->user();
 
@@ -145,10 +154,11 @@ class FileController extends Controller
             return response()->json(['message' => 'Physical file not found'], 404);
         }
 
-        return Storage::disk('local')->response($file->storage_path, $file->original_name, [
+        return response()->file(Storage::disk('local')->path($file->storage_path), [
             'Content-Type' => $file->mime_type,
             'Content-Disposition' => 'inline; filename="' . $file->original_name . '"',
             'Cache-Control' => 'private, max-age=86400, immutable',
+            'Accept-Ranges' => 'bytes',
         ]);
     }
 

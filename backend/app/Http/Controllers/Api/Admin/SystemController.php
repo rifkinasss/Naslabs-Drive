@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -124,6 +125,33 @@ class SystemController extends Controller
             'by_type' => $byType,
             'activity_by_day' => $activityByDay,
         ]);
+    }
+
+    public function latency(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $points = collect(range(23, 0))->map(function (int $hoursAgo): array {
+            $hour = now()->subHours($hoursAgo);
+            $date = $hour->format('Y-m-d-H');
+            $metrics = [];
+
+            foreach (['upload', 'download', 'preview', 'api'] as $kind) {
+                $prefix = "cloud:metrics:latency:{$date}:{$kind}";
+                $requests = (int) Cache::get($prefix . ':requests', 0);
+                $errors = (int) Cache::get($prefix . ':errors', 0);
+                $duration = (int) Cache::get($prefix . ':duration_ms', 0);
+                $metrics[$kind] = [
+                    'requests' => $requests,
+                    'errors' => $errors,
+                    'latency_ms' => $requests > 0 ? round($duration / $requests, 1) : 0,
+                ];
+            }
+
+            return ['hour' => $hour->format('Y-m-d H:00'), 'upload' => $metrics['upload'], 'download' => $metrics['download'], 'preview' => $metrics['preview'], 'api' => $metrics['api']];
+        })->values();
+
+        return response()->json(['period_hours' => 24, 'points' => $points]);
     }
 
     private function checkDatabase(): array

@@ -79,9 +79,14 @@ Route::middleware(['auth:sanctum', 'maintenance', 'throttle:300,1'])->group(func
     Route::patch('files/{uuid}/move', [FileController::class, 'move']);
     Route::delete('files/{uuid}', [FileController::class, 'destroy']);
     Route::post('files/{uuid}/shares', [ShareController::class, 'store']);
+    Route::patch('files/{uuid}/shares/{shareId}', [ShareController::class, 'updateFileShare']);
+    Route::delete('files/{uuid}/shares/{shareId}/recipients/{userId}', [ShareController::class, 'removeFileRecipient']);
     Route::get('shares', [ShareController::class, 'index']);
+    Route::get('shares/with-me', [ShareController::class, 'received']);
     Route::delete('shares/{token}', [ShareController::class, 'destroy']);
     Route::post('folders/{uuid}/shares', [ShareController::class, 'folderStore']);
+    Route::patch('folders/{uuid}/shares/{shareId}', [ShareController::class, 'updateFolderShare']);
+    Route::delete('folders/{uuid}/shares/{shareId}/recipients/{userId}', [ShareController::class, 'removeFolderRecipient']);
     Route::get('folder-shares', [ShareController::class, 'folderIndex']);
     Route::delete('folder-shares/{token}', [ShareController::class, 'folderDestroy']);
     Route::get('folder-shares/activity', [ShareController::class, 'folderActivity']);
@@ -96,6 +101,7 @@ Route::middleware(['auth:sanctum', 'maintenance', 'throttle:300,1'])->group(func
 
     // Search
     Route::get('search', [SearchController::class, 'index']);
+    Route::get('users/search', [ShareController::class, 'userSearch']);
     Route::get('productivity/insights', [ProductivityController::class, 'insights']);
     Route::patch('productivity/{type}/{uuid}/favorite', [ProductivityController::class, 'toggleFavorite']);
 
@@ -114,6 +120,7 @@ Route::middleware(['auth:sanctum', 'maintenance', 'throttle:300,1'])->group(func
         Route::get('logs', [AdminLogController::class, 'index']);
         Route::get('logs/export', [AdminLogController::class, 'export']);
         Route::get('system/health', [AdminSystemController::class, 'health']);
+        Route::get('system/latency', [AdminSystemController::class, 'latency']);
         Route::get('system/storage', [AdminSystemController::class, 'storage']);
         Route::post('system/storage/cleanup', [AdminSystemController::class, 'cleanupStorage']);
         Route::get('system/analytics', [AdminSystemController::class, 'analytics']);
@@ -140,6 +147,7 @@ Route::middleware(['auth:sanctum', 'maintenance', 'throttle:300,1'])->group(func
 
 Route::get('share/{token}', [ShareController::class, 'info'])->middleware('throttle:60,1');
 Route::post('share/{token}/download', [ShareController::class, 'download'])->middleware('throttle:30,1');
+Route::post('share/{token}/preview', [ShareController::class, 'preview'])->middleware('throttle:60,1');
 Route::get('folder-share/{token}', [ShareController::class, 'folderInfo'])->middleware('throttle:60,1');
 Route::post('folder-share/{token}/contents', [ShareController::class, 'folderContents'])->middleware('throttle:60,1');
 Route::get('folder-share/{token}/files/{uuid}/download', [ShareController::class, 'folderDownloadFile'])->middleware('throttle:30,1');
